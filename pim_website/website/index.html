@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notes App</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>📝 Notes App</h1>
+        <div class="user-info hidden" id="userInfo">
+          <span id="userEmail"></span>
+          <button class="btn btn-logout" onclick="logout()">Logout</button>
+        </div>
+      </div>
+
+      <div class="content">
+        <!-- Authentication -->
+        <div class="auth-section" id="authSection">
+          <form id="loginForm" class="auth-form">
+            <h2>Login</h2>
+            <div id="loginMessage"></div>
+            <input type="email" id="loginEmail" placeholder="Email" required />
+            <input
+              type="password"
+              id="loginPassword"
+              placeholder="Password"
+              required
+            />
+            <button class="btn" type="submit">Login</button>
+          </form>
+
+          <form id="registerForm" class="auth-form">
+            <h2>Register</h2>
+            <div id="registerMessage"></div>
+            <input
+              type="email"
+              id="registerEmail"
+              placeholder="Email"
+              required
+            />
+            <input
+              type="password"
+              id="registerPassword"
+              placeholder="Password"
+              required
+            />
+            <button class="btn" type="submit">Register</button>
+          </form>
+        </div>
+
+        <!-- Notes -->
+        <div class="notes-section" id="notesSection" style="display: none">
+          <div class="notes-header">
+            <h2>My Notes</h2>
+            <button class="btn btn-add" onclick="showNoteForm()">
+              ➕ Add Note
+            </button>
+          </div>
+
+          <div id="notesMessage"></div>
+
+          <!-- Note Form -->
+          <div class="note-form" id="noteForm" style="display: none">
+            <h3 id="formTitle">Add New Note</h3>
+            <input
+              type="text"
+              id="noteTitle"
+              placeholder="Note title..."
+              maxlength="100"
+            />
+            <textarea
+              id="noteBody"
+              placeholder="Write your note here..."
+            ></textarea>
+            <div class="form-buttons">
+              <button class="btn btn-save" onclick="saveNote()">
+                💾 Save Note
+              </button>
+              <button class="btn btn-cancel" onclick="cancelNoteForm()">
+                ❌ Cancel
+              </button>
+            </div>
+          </div>
+
+          <div id="notesContainer">
+            <div class="loading">Loading your notes...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Link JS -->
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
