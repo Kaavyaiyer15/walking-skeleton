@@ -149,16 +149,6 @@ store = Storage()
 pim = PIM(store, auth)
 
 # -------------------------------
-# Dependency for token validation
-# -------------------------------
-def get_current_user(authorization: str = Header(...)) -> str:
-    """Extract and validate authorization token."""
-    try:
-        return pim.auth.validate(authorization)
-    except AuthError as e:
-        raise HTTPException(status_code=401, detail=str(e))
-
-# -------------------------------
 # Pydantic Models
 # -------------------------------
 class UserCreds(BaseModel):
@@ -215,11 +205,9 @@ async def login(creds: UserCreds):
         raise HTTPException(status_code=401, detail=str(e))
 
 @app.post("/notes", response_model=NoteResponse)
-async def add_note(note: NoteData, user_id: str = Depends(get_current_user)):
+async def add_note(note: NoteData, authorization: str = Header(...)):
     """Add a new note for the authenticated user."""
     try:
-        # Using the token directly since get_current_user validates it
-        authorization = None  # We'll need to modify this approach
         new_note = pim.add_note(authorization, note.title, note.body)
         return NoteResponse(success=True, note=new_note.to_dict())
     except AuthError as e:
