@@ -10,7 +10,7 @@ import uuid
 import os
 from datetime import datetime, UTC
 from typing import List, Dict, Any, Optional
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -327,32 +327,6 @@ async def logout(authorization: str = Header(...)):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.post("/notes", response_model=NoteResponse)
-async def add_note(note: NoteData):
-    """Add a new note for the authenticated user."""
-    # Get authorization from header manually to provide better error handling
-    from fastapi import Request
-    
-    async def create_note_with_auth(request: Request):
-        auth_header = request.headers.get("authorization")
-        if not auth_header:
-            raise HTTPException(status_code=401, detail="Authorization header is required")
-        
-        try:
-            new_note = pim.add_note(auth_header, note.title, note.body)
-            return NoteResponse(success=True, note=new_note.to_dict())
-        except AuthError as e:
-            raise HTTPException(status_code=401, detail=str(e))
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-        except Exception as e:
-            raise HTTPException(status_code=500, detail="Internal server error")
-    
-    from fastapi import Request
-    request = Request(scope={"type": "http"})
-    return await create_note_with_auth(request)
-
-# Alternative simpler approach for add_note
-@app.post("/notes", response_model=NoteResponse)
 async def add_note(note: NoteData, authorization: str = Header(...)):
     """Add a new note for the authenticated user."""
     try:
@@ -402,14 +376,15 @@ async def health_check():
         "users_count": len(auth.users),
         "active_sessions": len(auth.active)
     }
-
+"""
 # -------------------------------
 # Debug endpoint (remove in production)
 # -------------------------------
 @app.get("/debug/users")
 async def debug_users():
-    """Debug endpoint to see registered users (remove in production)."""
+    ""Debug endpoint to see registered users (remove in production).""
     return {
         "users": list(auth.users.keys()),
         "count": len(auth.users)
     }
+    """
