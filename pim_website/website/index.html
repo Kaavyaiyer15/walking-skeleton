@@ -359,7 +359,7 @@
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
         border: 1px solid rgba(255, 255, 255, 0.1);
         transition: all 0.3s ease;
-        cursor: pointer;
+        position: relative;
       }
 
       .note-card:hover {
@@ -373,6 +373,7 @@
         font-weight: 600;
         margin-bottom: 1rem;
         word-break: break-word;
+        padding-right: 2rem;
       }
 
       .note-card p {
@@ -387,6 +388,48 @@
         font-size: 0.85rem;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
         padding-top: 0.75rem;
+      }
+
+      .note-actions {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        display: flex;
+        gap: 0.5rem;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .note-card:hover .note-actions {
+        opacity: 1;
+      }
+
+      .btn-icon {
+        background: rgba(40, 40, 40, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #e5e5e5;
+        padding: 0.5rem;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 0.9rem;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .btn-edit:hover {
+        background: rgba(99, 102, 241, 0.8);
+        color: white;
+        transform: scale(1.1);
+      }
+
+      .btn-delete:hover {
+        background: rgba(239, 68, 68, 0.8);
+        color: white;
+        transform: scale(1.1);
       }
 
       .loading {
@@ -460,6 +503,70 @@
         color: #ef4444;
       }
 
+      /* Modal styling */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(5px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+
+      .modal-overlay.active {
+        display: flex;
+      }
+
+      .modal {
+        background: rgba(30, 30, 30, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        padding: 2rem;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .modal h3 {
+        color: #ffffff;
+        margin-bottom: 1rem;
+        font-size: 1.5rem;
+      }
+
+      .modal p {
+        color: #e5e5e5;
+        margin-bottom: 2rem;
+        line-height: 1.6;
+      }
+
+      .modal-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+      }
+
+      .btn-confirm {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+        padding: 0.75rem 1.5rem;
+        text-transform: none;
+        letter-spacing: normal;
+      }
+
+      .btn-modal-cancel {
+        background: linear-gradient(135deg, #6b7280, #4b5563);
+        color: white;
+        padding: 0.75rem 1.5rem;
+        text-transform: none;
+        letter-spacing: normal;
+      }
+
       /* Responsive design */
       @media (max-width: 768px) {
         .header {
@@ -499,6 +606,14 @@
 
         #notesContainer {
           grid-template-columns: 1fr;
+        }
+
+        .note-actions {
+          opacity: 1;
+        }
+
+        .modal-buttons {
+          flex-direction: column;
         }
       }
     </style>
@@ -586,7 +701,7 @@
 
           <!-- Note Form -->
           <div class="note-form" id="noteForm">
-            <h3>Add New Note</h3>
+            <h3 id="noteFormTitle">Add New Note</h3>
             <input
               type="text"
               id="noteTitle"
@@ -616,8 +731,29 @@
       </div>
     </div>
 
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="deleteModal">
+      <div class="modal">
+        <h3>Delete Note</h3>
+        <p>
+          Are you sure you want to delete this note? This action cannot be
+          undone.
+        </p>
+        <div class="modal-buttons">
+          <button class="btn btn-modal-cancel" onclick="hideDeleteModal()">
+            Cancel
+          </button>
+          <button class="btn btn-confirm" onclick="confirmDelete()">
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+
     <script>
       let token = null;
+      let editingNoteId = null;
+      let deleteNoteId = null;
 
       // Utility functions
       function showMessage(elementId, message, isSuccess = true) {
@@ -910,6 +1046,8 @@
 
         // Clear local state
         token = null;
+        editingNoteId = null;
+        deleteNoteId = null;
 
         // Reset UI
         const authSection = document.getElementById("authSection");
@@ -980,7 +1118,12 @@
               notes.forEach((note) => {
                 const noteDiv = document.createElement("div");
                 noteDiv.className = "note-card";
+                noteDiv.setAttribute('data-note-id', note.id);
                 noteDiv.innerHTML = `
+                  <div class="note-actions">
+                    <button class="btn-icon btn-edit" title="Edit note">✏️</button>
+                    <button class="btn-icon btn-delete" title="Delete note">🗑️</button>
+                  </div>
                   <h4>${escapeHtml(note.title)}</h4>
                   <p>${escapeHtml(note.body) || "<em>No content</em>"}</p>
                   <div class="note-meta">
@@ -992,6 +1135,19 @@
                     }
                   </div>
                 `;
+                
+                // Add event listeners for edit and delete buttons
+                const editBtn = noteDiv.querySelector('.btn-edit');
+                const deleteBtn = noteDiv.querySelector('.btn-delete');
+                
+                if (editBtn) {
+                  editBtn.addEventListener('click', () => editNote(note.id));
+                }
+                
+                if (deleteBtn) {
+                  deleteBtn.addEventListener('click', () => showDeleteModal(note.id));
+                }
+                
                 container.appendChild(noteDiv);
               });
             }
@@ -1021,6 +1177,15 @@
       function showNoteForm() {
         const noteForm = document.getElementById("noteForm");
         const titleInput = document.getElementById("noteTitle");
+        const formTitle = document.getElementById("noteFormTitle");
+
+        // Reset form for new note
+        editingNoteId = null;
+        if (titleInput) titleInput.value = "";
+        const bodyInput = document.getElementById("noteBody");
+        if (bodyInput) bodyInput.value = "";
+
+        if (formTitle) formTitle.textContent = "Add New Note";
 
         if (noteForm) {
           noteForm.classList.add("active");
@@ -1031,18 +1196,71 @@
         }
       }
 
-      // Cancel note creation
+      // Edit existing note
+      async function editNote(noteId) {
+        if (!token) {
+          alert("Please login first");
+          logout();
+          return;
+        }
+
+        try {
+          const res = await fetch(`/notes/${noteId}`, {
+            method: "GET",
+            headers: {
+              Authorization: token,
+              Accept: "application/json",
+            },
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            const note = data.note;
+
+            // Populate form with note data
+            const titleInput = document.getElementById("noteTitle");
+            const bodyInput = document.getElementById("noteBody");
+            const formTitle = document.getElementById("noteFormTitle");
+            const noteForm = document.getElementById("noteForm");
+
+            if (titleInput) titleInput.value = note.title;
+            if (bodyInput) bodyInput.value = note.body;
+            if (formTitle) formTitle.textContent = "Edit Note";
+
+            editingNoteId = noteId;
+
+            if (noteForm) {
+              noteForm.classList.add("active");
+            }
+
+            if (titleInput) {
+              titleInput.focus();
+            }
+          } else {
+            alert("Failed to load note for editing");
+          }
+        } catch (error) {
+          alert("Network error. Please try again.");
+          console.error("Edit note error:", error);
+        }
+      }
+
+      // Cancel note creation/editing
       function cancelNoteForm() {
         const titleInput = document.getElementById("noteTitle");
         const bodyInput = document.getElementById("noteBody");
         const noteForm = document.getElementById("noteForm");
+        const formTitle = document.getElementById("noteFormTitle");
 
         if (titleInput) titleInput.value = "";
         if (bodyInput) bodyInput.value = "";
         if (noteForm) noteForm.classList.remove("active");
+        if (formTitle) formTitle.textContent = "Add New Note";
+
+        editingNoteId = null;
       }
 
-      // Save new note
+      // Save new note or update existing note
       async function saveNote() {
         const titleInput = document.getElementById("noteTitle");
         const bodyInput = document.getElementById("noteBody");
@@ -1071,12 +1289,15 @@
         const saveBtn = document.querySelector('button[onclick="saveNote()"]');
         if (saveBtn) {
           saveBtn.disabled = true;
-          saveBtn.textContent = "Saving...";
+          saveBtn.textContent = editingNoteId ? "Updating..." : "Saving...";
         }
 
         try {
-          const res = await fetch("/notes", {
-            method: "POST",
+          const method = editingNoteId ? "PUT" : "POST";
+          const url = editingNoteId ? `/notes/${editingNoteId}` : "/notes";
+
+          const res = await fetch(url, {
+            method: method,
             headers: {
               "Content-Type": "application/json",
               Authorization: token,
@@ -1098,7 +1319,9 @@
               const successMsg = document.createElement("div");
               successMsg.style.cssText =
                 "color: #10b981; font-weight: bold; margin-bottom: 10px; text-align: center; padding: 1rem; background: rgba(16, 185, 129, 0.2); border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.3);";
-              successMsg.textContent = "Note saved successfully!";
+              successMsg.textContent = editingNoteId
+                ? "Note updated successfully!"
+                : "Note saved successfully!";
               container.insertBefore(successMsg, container.firstChild);
 
               setTimeout(() => {
@@ -1126,6 +1349,74 @@
         }
       }
 
+      // Show delete confirmation modal
+      function showDeleteModal(noteId) {
+        deleteNoteId = noteId;
+        const modal = document.getElementById("deleteModal");
+        if (modal) {
+          modal.classList.add("active");
+        }
+      }
+
+      // Hide delete confirmation modal
+      function hideDeleteModal() {
+        deleteNoteId = null;
+        const modal = document.getElementById("deleteModal");
+        if (modal) {
+          modal.classList.remove("active");
+        }
+      }
+
+      // Confirm and execute note deletion
+      async function confirmDelete() {
+        if (!deleteNoteId || !token) {
+          hideDeleteModal();
+          return;
+        }
+
+        try {
+          const res = await fetch(`/notes/${deleteNoteId}`, {
+            method: "DELETE",
+            headers: {
+              Authorization: token,
+              Accept: "application/json",
+            },
+          });
+
+          if (res.ok) {
+            hideDeleteModal();
+            await loadNotes();
+
+            // Show success message
+            const container = document.getElementById("notesContainer");
+            if (container) {
+              const successMsg = document.createElement("div");
+              successMsg.style.cssText =
+                "color: #10b981; font-weight: bold; margin-bottom: 10px; text-align: center; padding: 1rem; background: rgba(16, 185, 129, 0.2); border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.3);";
+              successMsg.textContent = "Note deleted successfully!";
+              container.insertBefore(successMsg, container.firstChild);
+
+              setTimeout(() => {
+                if (successMsg.parentNode) {
+                  successMsg.parentNode.removeChild(successMsg);
+                }
+              }, 2000);
+            }
+          } else if (res.status === 401) {
+            logout();
+            alert("Session expired. Please login again.");
+          } else {
+            const err = await res.json().catch(() => ({}));
+            alert(`Could not delete note: ${err.detail || "Unknown error"}`);
+          }
+        } catch (error) {
+          alert("Network error. Please try again.");
+          console.error("Delete note error:", error);
+        }
+
+        hideDeleteModal();
+      }
+
       // Initialize app when DOM is loaded
       document.addEventListener("DOMContentLoaded", function () {
         console.log("DOM loaded, initializing app...");
@@ -1146,12 +1437,26 @@
           console.warn("Login form not found");
         }
 
+        // Close modal when clicking outside
+        const deleteModal = document.getElementById("deleteModal");
+        if (deleteModal) {
+          deleteModal.addEventListener("click", function (event) {
+            if (event.target === deleteModal) {
+              hideDeleteModal();
+            }
+          });
+        }
+
         // Add keyboard shortcuts
         document.addEventListener("keydown", function (event) {
-          // Escape key to cancel note form
+          // Escape key to cancel note form or close modal
           if (event.key === "Escape") {
             const noteForm = document.getElementById("noteForm");
-            if (noteForm && noteForm.classList.contains("active")) {
+            const modal = document.getElementById("deleteModal");
+
+            if (modal && modal.classList.contains("active")) {
+              hideDeleteModal();
+            } else if (noteForm && noteForm.classList.contains("active")) {
               cancelNoteForm();
             }
           }

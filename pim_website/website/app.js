@@ -98,6 +98,7 @@ async function registerUser(event) {
 
   // Disable submit button during request
   const submitBtn = event.target.querySelector('button[type="submit"]');
+  const originalText = submitBtn ? submitBtn.textContent : "Register";
   if (submitBtn) {
     submitBtn.disabled = true;
     submitBtn.textContent = "Registering...";
@@ -138,7 +139,7 @@ async function registerUser(event) {
     // Re-enable submit button
     if (submitBtn) {
       submitBtn.disabled = false;
-      submitBtn.textContent = "Register";
+      submitBtn.textContent = originalText;
     }
   }
 }
@@ -174,6 +175,7 @@ async function loginUser(event) {
 
   // Disable submit button during request
   const submitBtn = event.target.querySelector('button[type="submit"]');
+  const originalText = submitBtn ? submitBtn.textContent : "Login";
   if (submitBtn) {
     submitBtn.disabled = true;
     submitBtn.textContent = "Logging in...";
@@ -225,7 +227,7 @@ async function loginUser(event) {
     // Re-enable submit button
     if (submitBtn) {
       submitBtn.disabled = false;
-      submitBtn.textContent = "Login";
+      submitBtn.textContent = originalText;
     }
   }
 }
@@ -438,8 +440,14 @@ async function saveNote() {
     return;
   }
 
-  // Disable save button during request
-  const saveBtn = document.querySelector('button[onclick="saveNote()"]');
+  // Find the save button more reliably
+  const saveBtn = document.querySelector('button[onclick="saveNote()"]') || 
+                  document.querySelector('.save-note-btn') ||
+                  Array.from(document.querySelectorAll('button')).find(btn => 
+                    btn.textContent.toLowerCase().includes('save'));
+  
+  const originalText = saveBtn ? saveBtn.textContent : "Save Note";
+  
   if (saveBtn) {
     saveBtn.disabled = true;
     saveBtn.textContent = "Saving...";
@@ -491,7 +499,7 @@ async function saveNote() {
     // Re-enable save button
     if (saveBtn) {
       saveBtn.disabled = false;
-      saveBtn.textContent = "Save Note";
+      saveBtn.textContent = originalText;
     }
   }
 }
