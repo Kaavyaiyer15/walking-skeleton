@@ -271,6 +271,51 @@
         box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);
       }
 
+      /* Search Bar Styling */
+      .search-container {
+        background: rgba(30, 30, 30, 0.95);
+        backdrop-filter: blur(15px);
+        border-radius: 20px;
+        padding: 1.5rem 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .search-input {
+        width: 100%;
+        padding: 1rem 1.25rem;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: rgba(40, 40, 40, 0.8);
+        color: #ffffff;
+      }
+
+      .search-input::placeholder {
+        color: #9ca3af;
+      }
+
+      .search-input:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        background: rgba(50, 50, 50, 0.9);
+      }
+
+      .search-results-info {
+        margin-top: 1rem;
+        color: #9ca3af;
+        font-size: 0.9rem;
+        text-align: center;
+        display: none;
+      }
+
+      .search-results-info.show {
+        display: block;
+      }
+
       .note-form {
         background: rgba(30, 30, 30, 0.95);
         backdrop-filter: blur(15px);
@@ -567,6 +612,14 @@
         letter-spacing: normal;
       }
 
+      /* Search highlighting */
+      .highlight {
+        background-color: rgba(99, 102, 241, 0.3);
+        color: #ffffff;
+        padding: 0.1em 0.2em;
+        border-radius: 3px;
+      }
+
       /* Responsive design */
       @media (max-width: 768px) {
         .header {
@@ -699,6 +752,17 @@
             </button>
           </div>
 
+          <!-- Search Bar -->
+          <div class="search-container">
+            <input
+              type="text"
+              id="searchInput"
+              class="search-input"
+              placeholder="Search notes by title or content..."
+            />
+            <div id="searchResultsInfo" class="search-results-info"></div>
+          </div>
+
           <!-- Note Form -->
           <div class="note-form" id="noteForm">
             <h3 id="noteFormTitle">Add New Note</h3>
@@ -754,6 +818,8 @@
       let token = null;
       let editingNoteId = null;
       let deleteNoteId = null;
+      let allNotes = []; // Store all notes for searching
+      let searchTimeout = null;
 
       // Utility functions
       function showMessage(elementId, message, isSuccess = true) {
@@ -802,6 +868,125 @@
         const div = document.createElement("div");
         div.textContent = text;
         return div.innerHTML;
+      }
+
+      // Search functionality
+      function highlightText(text, searchTerm) {
+        if (!searchTerm.trim()) return escapeHtml(text);
+
+        const escapedText = escapeHtml(text);
+        const regex = new RegExp(
+          `(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+          "gi"
+        );
+        return escapedText.replace(regex, '<span class="highlight">$1</span>');
+      }
+
+      function searchNotes(searchTerm) {
+        if (!searchTerm.trim()) {
+          displayNotes(allNotes);
+          updateSearchInfo("");
+          return;
+        }
+
+        const filteredNotes = allNotes.filter(
+          (note) =>
+            note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (note.body &&
+              note.body.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+
+        displayNotes(filteredNotes, searchTerm);
+        updateSearchInfo(searchTerm, filteredNotes.length);
+      }
+
+      function updateSearchInfo(searchTerm, resultCount) {
+        const infoElement = document.getElementById("searchResultsInfo");
+        if (!infoElement) return;
+
+        if (!searchTerm.trim()) {
+          infoElement.classList.remove("show");
+          return;
+        }
+
+        infoElement.textContent = `Found ${resultCount} note${
+          resultCount !== 1 ? "s" : ""
+        } matching "${searchTerm}"`;
+        infoElement.classList.add("show");
+      }
+
+      function displayNotes(notes, searchTerm = "") {
+        const container = document.getElementById("notesContainer");
+        if (!container) return;
+
+        container.innerHTML = "";
+
+        if (notes.length === 0) {
+          if (searchTerm) {
+            container.innerHTML = `
+              <div class="no-notes">
+                <h3>No notes found</h3>
+                <p>No notes match your search for "${escapeHtml(
+                  searchTerm
+                )}"</p>
+              </div>
+            `;
+          } else {
+            container.innerHTML = `
+              <div class="no-notes">
+                <h3>No notes yet</h3>
+                <p>Click "Add Note" to create your first note!</p>
+              </div>
+            `;
+          }
+        } else {
+          notes.forEach((note) => {
+            const noteDiv = document.createElement("div");
+            noteDiv.className = "note-card";
+            noteDiv.setAttribute("data-note-id", note.id);
+
+            const highlightedTitle = searchTerm
+              ? highlightText(note.title, searchTerm)
+              : escapeHtml(note.title);
+            const highlightedBody =
+              searchTerm && note.body
+                ? highlightText(note.body, searchTerm)
+                : escapeHtml(note.body) || "<em>No content</em>";
+
+            noteDiv.innerHTML = `
+              <div class="note-actions">
+                <button class="btn-icon btn-edit" title="Edit note">✏️</button>
+                <button class="btn-icon btn-delete" title="Delete note">🗑️</button>
+              </div>
+              <h4>${highlightedTitle}</h4>
+              <p>${highlightedBody}</p>
+              <div class="note-meta">
+                Created: ${formatDate(note.created_time)}
+                ${
+                  note.updated_time !== note.created_time
+                    ? `<br>Updated: ${formatDate(note.updated_time)}`
+                    : ""
+                }
+              </div>
+            `;
+
+            // Add event listeners for edit and delete buttons
+            const editBtn = noteDiv.querySelector(".btn-edit");
+            const deleteBtn = noteDiv.querySelector(".btn-delete");
+
+            if (editBtn) {
+              editBtn.addEventListener("click", () => editNote(note.id));
+            }
+
+            if (deleteBtn) {
+              deleteBtn.addEventListener("click", () =>
+                showDeleteModal(note.id)
+              );
+            }
+
+            container.appendChild(noteDiv);
+          });
+        }
       }
 
       // Validate email format
@@ -1048,15 +1233,18 @@
         token = null;
         editingNoteId = null;
         deleteNoteId = null;
+        allNotes = [];
 
         // Reset UI
         const authSection = document.getElementById("authSection");
         const notesSection = document.getElementById("notesSection");
         const userInfo = document.getElementById("userInfo");
+        const searchInput = document.getElementById("searchInput");
 
         if (authSection) authSection.style.display = "flex";
         if (notesSection) notesSection.classList.remove("active");
         if (userInfo) userInfo.classList.add("hidden");
+        if (searchInput) searchInput.value = "";
 
         // Clear forms and messages
         clearForm("loginForm");
@@ -1064,10 +1252,14 @@
         clearMessage("loginMessage");
         clearMessage("registerMessage");
 
-        // Clear notes container
+        // Clear notes container and search info
         const notesContainer = document.getElementById("notesContainer");
+        const searchInfo = document.getElementById("searchResultsInfo");
         if (notesContainer) {
           notesContainer.innerHTML = "";
+        }
+        if (searchInfo) {
+          searchInfo.classList.remove("show");
         }
 
         // Hide note form
@@ -1104,52 +1296,17 @@
             const data = await res.json();
             const notes = data.notes || [];
 
-            container.innerHTML = "";
+            // Store notes for searching
+            allNotes = notes;
 
-            if (notes.length === 0) {
-              container.innerHTML = `
-                <div class="no-notes">
-                  <h3>No notes yet</h3>
-                  <p>Click "Add Note" to create your first note!</p>
-                </div>
-              `;
+            // Apply current search if any
+            const searchInput = document.getElementById("searchInput");
+            const currentSearch = searchInput ? searchInput.value : "";
+
+            if (currentSearch.trim()) {
+              searchNotes(currentSearch);
             } else {
-              // Notes should already be sorted by the backend
-              notes.forEach((note) => {
-                const noteDiv = document.createElement("div");
-                noteDiv.className = "note-card";
-                noteDiv.setAttribute('data-note-id', note.id);
-                noteDiv.innerHTML = `
-                  <div class="note-actions">
-                    <button class="btn-icon btn-edit" title="Edit note">✏️</button>
-                    <button class="btn-icon btn-delete" title="Delete note">🗑️</button>
-                  </div>
-                  <h4>${escapeHtml(note.title)}</h4>
-                  <p>${escapeHtml(note.body) || "<em>No content</em>"}</p>
-                  <div class="note-meta">
-                    Created: ${formatDate(note.created_time)}
-                    ${
-                      note.updated_time !== note.created_time
-                        ? `<br>Updated: ${formatDate(note.updated_time)}`
-                        : ""
-                    }
-                  </div>
-                `;
-                
-                // Add event listeners for edit and delete buttons
-                const editBtn = noteDiv.querySelector('.btn-edit');
-                const deleteBtn = noteDiv.querySelector('.btn-delete');
-                
-                if (editBtn) {
-                  editBtn.addEventListener('click', () => editNote(note.id));
-                }
-                
-                if (deleteBtn) {
-                  deleteBtn.addEventListener('click', () => showDeleteModal(note.id));
-                }
-                
-                container.appendChild(noteDiv);
-              });
+              displayNotes(notes);
             }
           } else if (res.status === 401) {
             // Token expired or invalid
@@ -1424,6 +1581,7 @@
         // Attach event listeners
         const registerForm = document.getElementById("registerForm");
         const loginForm = document.getElementById("loginForm");
+        const searchInput = document.getElementById("searchInput");
 
         if (registerForm) {
           registerForm.addEventListener("submit", registerUser);
@@ -1435,6 +1593,23 @@
           loginForm.addEventListener("submit", loginUser);
         } else {
           console.warn("Login form not found");
+        }
+
+        // Add search functionality
+        if (searchInput) {
+          searchInput.addEventListener("input", function (event) {
+            const searchTerm = event.target.value;
+
+            // Clear previous timeout
+            if (searchTimeout) {
+              clearTimeout(searchTimeout);
+            }
+
+            // Debounce search to avoid too many calls while typing
+            searchTimeout = setTimeout(() => {
+              searchNotes(searchTerm);
+            }, 300);
+          });
         }
 
         // Close modal when clicking outside
@@ -1465,6 +1640,16 @@
           if (event.ctrlKey && event.key === "n" && token) {
             event.preventDefault();
             showNoteForm();
+          }
+
+          // Ctrl+F to focus search (when logged in)
+          if (event.ctrlKey && event.key === "f" && token) {
+            event.preventDefault();
+            const searchInput = document.getElementById("searchInput");
+            if (searchInput) {
+              searchInput.focus();
+              searchInput.select();
+            }
           }
         });
 
